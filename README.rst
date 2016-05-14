@@ -7,6 +7,7 @@ In addition, check the rate of pylint return. If the commit have to finish, the 
 For pylint detail, please check [here](https://docs.pylint.org/index.html)
 
 Need install pylint and glob2
-```python
+
+```
 pip install pylint glob2
 ```
