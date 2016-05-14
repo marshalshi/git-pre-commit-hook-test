@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+import re
+import sys
+import subprocess
+import glob2
+
+from pylint import epylint as lint
+
+def check_py_file(fp):
+    '''This function will check the relevant file with pylint.
+    If the file is not python file, then return accessable.
+
+    Args:
+        fp (string): the file path
+
+    Return:
+        boolean: whether the file is accessable.
+           True means accessable. 
+    '''
+
+    if not file_path.endswith('.py'):
+        return True
+
+    # use pylint to check relevant file
+    command = 'pylint {0}'.format(fp)
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    outputs, error = process.communicate()
+
+    # Here to check two blocks of outputs
+    # aka the first block, file status, and last block the rate of file
+
+    lst = outputs.split('\n')
+    lst = filter(lambda x: x, lst)
+
+    commit = True
+    ################################################################
+    # we only care about the warnning and error before report detail
+    first_block = lst[1: lst.index('Report')]
+    errors = []
+    for line in first_block:
+        print line
+        if line.startswith('E'):
+            errors.append(line)
+            commit = False
+
+    if not commit:
+        print 'There is pylint error in your code:'
+        for err in errors:
+            print '\t{0}'.format(err)
+
+    ################################################################
+    # then check the rate, here to make rate have to larger than 5.0/10
+    last_block = lst[-1]
+    # use regex to find rate
+    pattern = r'\d+.\d+/\d+'
+    match = re.search(pattern, last_block)
+    if match:
+        rate = float(match.group().split('/')[0])
+        if rate < 5.0:
+            commit = False
+            print 'Rate is less than 5.0, please check your codes. RATE:{0}'.format(rate)
+            
+    return commit
+
+file_lst = []
+# To run the script on files/folders, provide an argument.
+if len(sys.argv) > 1:
+    # didn't test this part 
+    args = sys.argv[1:]
+    for arg in args:
+        if os.path.exists(arg):
+            if os.path.isdir(arg):
+                file_lst += glob2.glob('{0}/**/*.py'.format(arg))
+            else:
+                file_lst.append(arg)
+
+else:
+
+    # current comes from git add
+    # following command to find all update, copied and added files. 
+    command = "git diff --cached --name-status --diff-filter=ACM"
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    statuses, error = process.communicate()
+
+    for status in statuses.split('\n'):
+        if status.strip():
+            state, file_path = status.split()
+            file_lst.append(file_path)
+
+# check all files in commit command
+commit = True
+for file_path in file_lst:
+    if not check_py_file(file_path):
+        commit = False
+
+if not commit:
+    sys.exit(1)
+    
